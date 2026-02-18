@@ -83,17 +83,17 @@ possibly followed by numerical data (integers only).
 | `v`         | report version of firmware |
 | `n`         | report number of registers |
 | `p`         | report register values |
-| `r <i>`     | report value of register i |
-| `s <i> <j>` | set register i to value j |
+| `r <i>`     | report value of register `i` |
+| `s <i> <j>` | set register `i` to value `j` |
 | `R`         | restore register values from EEPROM |
 | `S`         | save register values to EEPROM |
 | `F`         | set register values to original values |
 | `a`         | arm device and wait for event |
-| `c <i>`     | convert analogue channel i (12-bit result, 0-4095) |
-|             | i=57 DAC2_output (INa) |
-|             | i=58 DAC3_output (INb) |
-|             | i=0  RA0/C1IN0- (INa) |
-|             | i=9  RB1/C2IN3- (INb) |
+| `c <i>`     | convert analogue channel `i` (12-bit result, 0-4095) |
+|             | i=57 to read threshold voltage on INa (DAC2_output) |
+|             | i=58 to read threshold voltage on INb (DAC3_output) |
+|             | i=0  to read incoming voltage on INa (RA0/C1IN0-) |
+|             | i=9  to read incoming voltage on INb (RB1/C2IN3-) |
 
 Note that box powers up with a focus on the serial port and will
 respond to commands.
@@ -104,15 +104,15 @@ to regain its attention.
 
 The run-time configuration is determined by the values in the (virtual) registers. 
 
-| Register | Meaning                 | Comment |
-|----------|:------------------------|---------|
-| 0        | mode                    | 0= simple trigger from INa signal |
-|          |                         | 1= time-of-flight(TOF) trigger |
-| 1        | threshold level for INa | an 8-bit number 0-255 |
-| 2        | threshold level for INb | an 8-bit number 0-255 |
-| 3        | Vref selection for DACs | 0=off, 1=1v024, 2=2v048, 3=4v096 |
-| 4        | delay0                  | a 16-bit count (8 ticks per us) |
-| 5        | delay1                  | a 16-bit count (8 ticks per us) |
-| 6        | delay2                  | a 16-bit count (8 ticks per us) |
+| Register | Parameter               | Default | Comment |
+|----------|:------------------------|:--------|:--------|
+| 0        | mode                    | 0       | 0= simple trigger from INa signal |
+|          |                         |         | 1= time-of-flight(TOF) trigger |
+| 1        | threshold level for INa | 5       | an 8-bit number 0-255 |
+| 2        | threshold level for INb | 5       | an 8-bit number 0-255 |
+| 3        | Vref selection for DACs | 3       | 0=off, 1=1v024, 2=2v048, 3=4v096 |
+| 4        | delay0                  | 0       | a 16-bit count (8 ticks per us) |
+| 5        | delay1                  | 0       | a 16-bit count (8 ticks per us) |
+| 6        | delay2                  | 0       | a 16-bit count (8 ticks per us) |
 
 
