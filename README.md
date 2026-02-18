@@ -5,10 +5,10 @@
 The X2-timer+trigger box is built around a PIC18F46Q71-I/P microcontroller, 
 which monitors one or two analog input channels (INa and INb) and produces
 step changes on 8 digital output channels (OUT0 .. OUT7) at specific times.
-The specific times for the output transitions are determined from events on
+The times for the output transitions are determined from events on
 the input channels and the mode of operation.
 
-Since the microcontroller is powered via a USB cable (TTL-232-5V from FTDI), 
+Because the microcontroller is powered via a USB cable (TTL-232-5V from FTDI), 
 the system is essentially a 5V system.
 The input voltages should be kept within the range 0 to 5V 
 and the digital outputs will have a logic high value that is close to 5V.
@@ -36,7 +36,8 @@ When describing the actions of the box, we define some *events*:
 There are two modes of operation:
 
 - Mode 0: Simple trigger on EVENT1 only.
-- Mode 1: Time-of-flight trigger following EVENT1 and then EVENT2.
+- Mode 1: Time-of-flight trigger at a computed time, 
+  following EVENT1 and then EVENT2.
 
 ### Simple trigger mode
 
@@ -76,23 +77,23 @@ The output transitions (low to high) occur at the following times:
 The form of each command is a single character,
 possibly followed by numerical data (integers only).
 
-| Command   |  Comments/Action |
-|-----------|:-----------------|
-| h or ?    | print the help message |
-| v         | report version of firmware |
-| n         | report number of registers |
-| p         | report register values |
-| r <i>     | report value of register i |
-| s <i> <j> | set register i to value j |
-| R         | restore register values from EEPROM |
-| S         | save register values to EEPROM |
-| F         | set register values to original values |
-| a         | arm device and wait for event |
-| c <i>     | convert analogue channel i (12-bit result, 0-4095) |
-|           | i=57 DAC2_output (INa) |
-|           | i=58 DAC3_output (INb) |
-|           | i=0  RA0/C1IN0- (INa) |
-|           | i=9  RB1/C2IN3- (INb) |
+| Command     |  Comments/Action |
+|-------------|:-----------------|
+| `h` or `?`  | print the help message |
+| `v`         | report version of firmware |
+| `n`         | report number of registers |
+| `p`         | report register values |
+| `r <i>`     | report value of register i |
+| `s <i> <j>` | set register i to value j |
+| `R`         | restore register values from EEPROM |
+| `S`         | save register values to EEPROM |
+| `F`         | set register values to original values |
+| `a`         | arm device and wait for event |
+| `c <i>`     | convert analogue channel i (12-bit result, 0-4095) |
+|             | i=57 DAC2_output (INa) |
+|             | i=58 DAC3_output (INb) |
+|             | i=0  RA0/C1IN0- (INa) |
+|             | i=9  RB1/C2IN3- (INb) |
 
 Note that box powers up with a focus on the serial port and will
 respond to commands.
@@ -113,3 +114,5 @@ The run-time configuration is determined by the values in the (virtual) register
 | 4        | delay0                  | a 16-bit count (8 ticks per us) |
 | 5        | delay1                  | a 16-bit count (8 ticks per us) |
 | 6        | delay2                  | a 16-bit count (8 ticks per us) |
+
+
