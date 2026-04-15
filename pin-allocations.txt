@@ -1,5 +1,5 @@
 Pin allocations for PIC18F46Q71-I/P x2-timer-ng-build-3
-PJ 2024-07-01
+PJ 2024-07-01, 2026-04-13
 
                 PIC18F46Q71-I/P
                 +------v------+
@@ -15,7 +15,7 @@ LED_ARMa      9 | RE1     VDD | 32           +5V
 LED_ARMb     10 | RE2     RB6 | 31           GND
 +5V          11 | VDD     RD7 | 30         OUT5b
 GND          12 | VSS     RD6 | 29         OUT5a
-(NC)         13 | RA7     RD5 | 28         OUT4b
+LED_REMOTE   13 | RA7     RD5 | 28         OUT4b
 (NC)         14 | RA6     RD4 | 27         OUT4a
 TX1          15 | RC0     RC7 | 26           RX1
 RTS1         16 | RC1     RC6 | 25          CTS1

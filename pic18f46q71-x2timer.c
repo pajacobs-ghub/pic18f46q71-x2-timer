@@ -7,8 +7,9 @@
 //     2024-07-15 Fixed delays implemented.
 //     2024-07-16 Add third delay to simple trigger and implement TOF trigger.
 //     2024-07-17 Refactor code for setting of latches.
+//     2026-04-13 Add RA7 driving REMOTE_LEDa
 //
-#define VERSION_STR "v0.10 PIC18F46Q71 X2-timer-ng build-3 2024-07-17"
+#define VERSION_STR "v0.11 PIC18F46Q71 X2-timer-ng build-3 2026-04-13"
 //
 // PIC18F46Q71 Configuration Bit Settings (generated in Memory View)
 // CONFIG1
@@ -78,9 +79,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#define LED0 LATEbits.LATE0
-#define LED1 LATEbits.LATE1
-#define LED2 LATEbits.LATE2
+#define LED_POWER LATEbits.LATE0
+#define LED_ARMa LATEbits.LATE1
+#define LED_ARMb LATEbits.LATE2
+#define LED_REMOTE LATAbits.LATA7
 
 #define OUT0a LATCbits.LATC2
 #define OUT0b LATCbits.LATC3
@@ -100,28 +102,50 @@
 #define OUT7b LATBbits.LATB5
 
 // Parameters controlling the device are stored in virtual registers.
-#define NUMREG 7
+#define NUMREG 9
 int16_t vregister[NUMREG]; // working copy in SRAM
-const char* hints[NUMREG] = { "mode",
-  "level-a", "level-b", "Vref",
-  "delay-0", "delay-1", "delay-2"
+#define REG_MODE 0
+#define REG_LEVELa 1
+#define REG_LEVELb 2
+#define REG_VREF 3
+#define REG_DELAY0 4
+#define REG_DELAY1 5
+#define REG_DELAY2 6
+#define REG_NUMER 7
+#define REG_DENOM 8
+const char* hints[NUMREG] = { 
+  "mode",
+  "level-a",
+  "level-b",
+  "Vref",
+  "delay-0",
+  "delay-1",
+  "delay-2",
+  "numer",
+  "denom"
 }; 
 
 void set_registers_to_original_values()
 {
-    vregister[0] = 0;   // mode 0=simple trigger from INa, 1=time-of-flight(TOF) trigger)
-    vregister[1] = 5;   // trigger level INa as a 8-bit count, 0-255
-    vregister[2] = 5;   // trigger level INb as a 8-bit count, 0-255
-    vregister[3] = 3;   // Vref selection for DAC 0=off, 1=1v024, 2=2v048, 3=4v096
-    vregister[4] = 0;   // delay 0 as a 16-bit count
-    vregister[5] = 0;   // delay 1
-    vregister[6] = 0;   // delay 2
+    vregister[REG_MODE] = 0;    // mode
+    // 0=simple trigger from INa, 1=time-of-flight(TOF) trigger
+    vregister[REG_LEVELa] = 5;  // trigger level INa as a 8-bit count, 0-255
+    vregister[REG_LEVELb] = 5;  // trigger level INb as a 8-bit count, 0-255
+    vregister[REG_VREF] = 3;    // Vref selection for DAC
+    // 0=off, 1=1024mV, 2=2048mV, 3=4096mV
+    vregister[REG_DELAY0] = 0;  // delay 0 as a 16-bit count
+    vregister[REG_DELAY1] = 0;  // delay 1
+    vregister[REG_DELAY2] = 0;  // delay 2
+    vregister[REG_NUMER] = 17;  // scaling numerator (1-255); keep small
+    vregister[REG_DENOM] = 4;   // scaling denominator (1-255)
+    // Scaling of 17/4 = 4.25 matches the X2 geometry of yesteryear.
 }
 
 // EEPROM is used to hold the parameters when the power is off.
 // Note little-endian layout.
 __EEPROM_DATA(0,0, 5,0, 5,0, 3,0);
-__EEPROM_DATA(0,0, 0,0, 0,0, 0,0);
+__EEPROM_DATA(0,0, 0,0, 0,0, 17,0);
+__EEPROM_DATA(4,0, 0,0, 0,0, 0,0);
 
 char save_registers_to_EEPROM()
 {
@@ -143,9 +167,10 @@ char restore_registers_from_EEPROM()
 void init_pins()
 {
     // Outputs for LEDs and debugging
-    LED0 = 0; TRISEbits.TRISE0 = 0; ANSELEbits.ANSELE0 = 0;
-    LED1 = 0; TRISEbits.TRISE1 = 0; ANSELEbits.ANSELE1 = 0;
-    LED2 = 0; TRISEbits.TRISE2 = 0; ANSELEbits.ANSELE2 = 0;
+    LED_POWER = 0; TRISEbits.TRISE0 = 0; ANSELEbits.ANSELE0 = 0;
+    LED_ARMa = 0; TRISEbits.TRISE1 = 0; ANSELEbits.ANSELE1 = 0;
+    LED_ARMb = 0; TRISEbits.TRISE2 = 0; ANSELEbits.ANSELE2 = 0;
+    LED_REMOTE = 0; TRISAbits.TRISA7 = 0; ANSELAbits.ANSELA7 = 0;
     // We have comparator input pins C1IN0-/RA0 and C2IN3-/RB1.
     TRISAbits.TRISA0 = 1;
     ANSELAbits.ANSELA0 = 1;
@@ -174,7 +199,7 @@ void init_pins()
 void update_FVRs()
 {
     // We want to both the ADC and the DAC references set the same.
-    uint8_t vref = vregister[3] & 0x03;
+    uint8_t vref = vregister[REG_VREF] & 0x03;
     FVRCONbits.ADFVR = vref;
     FVRCONbits.CDAFVR = vref;
     FVRCONbits.EN = 1;
@@ -195,12 +220,12 @@ void update_DACs()
     DAC2CONbits.PSS = 0b10; // FVR Buffer 2
     DAC2CONbits.NSS = 0; // VSS
     DAC2CONbits.EN = 1;
-    DAC2DATL = (uint8_t)vregister[1];
+    DAC2DATL = (uint8_t)vregister[REG_LEVELa];
     //
     DAC3CONbits.PSS = 0b10; // FVR Buffer 2
     DAC3CONbits.NSS = 0; // VSS
     DAC3CONbits.EN = 1;
-    DAC3DATL = (uint8_t)vregister[2];
+    DAC3DATL = (uint8_t)vregister[REG_LEVELb];
     //
     return;
 }
@@ -311,9 +336,9 @@ uint8_t trigger_simple()
     setup_CLCn_as_latch(3, 0x20); // CLC3 latches CMP1_OUT also
     //
     // Some out the outputs may be delayed so set up timers.
-    uint16_t delay0 = (uint16_t)vregister[4];
-    uint16_t delay1 = (uint16_t)vregister[5];
-    uint16_t delay2 = (uint16_t)vregister[6];
+    uint16_t delay0 = (uint16_t)vregister[REG_DELAY0];
+    uint16_t delay1 = (uint16_t)vregister[REG_DELAY1];
+    uint16_t delay2 = (uint16_t)vregister[REG_DELAY2];
     //
     TUCHAINbits.CH16AB = 0; // independent counters
     if (delay0) {
@@ -434,15 +459,16 @@ uint8_t trigger_simple()
     PPSLOCK = 0xaa;
     PPSLOCKED = 1;
     //
-    LED1 = 1; // Indicate that we are armed and waiting.
-    LED2 = 1; // Second LED indicator.
+    LED_ARMa = 1; // Indicate that we are armed and waiting.
+    LED_ARMb = 1; // Second LED indicator.
+    LED_REMOTE = 1;
     //
     // Wait until the event and then clean up.
-    while (!CMOUTbits.MC1OUT) { CLRWDT(); }
     while (!CLCDATAbits.CLC1OUT) { CLRWDT(); }
-    while (!CLCDATAbits.CLC3OUT) { CLRWDT(); }
-    while (!PORTCbits.RC4) { CLRWDT(); }  // OUT3 on CLC1
-    while (!PORTDbits.RD4) { CLRWDT(); }  // OUT4 on CLC3
+    // Have seen Event1.
+    LED_ARMa = 0; // No longer armed and waiting.
+    LED_ARMb = 0;
+    LED_REMOTE = 0;
     // The delayed outputs may happen later, so wait for those, too.
     while (!PORTCbits.RC2) { CLRWDT(); }  // OUT0
     while (!PORTDbits.RD0) { CLRWDT(); }  // OUT1
@@ -451,9 +477,6 @@ uint8_t trigger_simple()
     // After the event, keep the outputs high for a short while
     // and then clean up.
     __delay_ms(100);
-    LED1 = 0; // No longer armed and waiting.
-    LED2 = 0;
-    //
     // Redirect the output pins to their latches (which are all low).
     GIE = 0; // We run without interrupt.
     PPSLOCK = 0x55;
@@ -695,19 +718,36 @@ uint8_t trigger_TOF()
     PPSLOCK = 0xaa;
     PPSLOCKED = 1;
     //
-    LED1 = 1; // Indicate that we are armed and waiting.
-    LED2 = 1; // Second LED indicator.
+    LED_ARMa = 1; // Indicate that we are armed and waiting.
+    LED_ARMb = 1; // Second LED indicator.
+    LED_REMOTE = 1;
     //
     // Event3 will be generated after a delay computed from 
     // the TOF between Events 1 and 2.
-    uint16_t delay_extra = (uint16_t)vregister[6];
+    uint16_t delay_extra = (uint16_t)vregister[REG_DELAY2];
+    uint8_t numer = (uint8_t)vregister[REG_NUMER];
+    uint8_t denom = (uint8_t)vregister[REG_DENOM];
+    if (denom == 0) denom = 1; // Cannot tolerate a zero value here.
     //
-    // We cannot do anything more until Event2.
+    // Wait for Event1.
+    while (!CLCDATAbits.CLC3OUT) { CLRWDT(); }
+    LED_ARMa = 0; // No longer armed and waiting.
+    LED_REMOTE = 0;
+    //
+    // Wait for Event2.
     while (!CLCDATAbits.CLC4OUT) { CLRWDT(); }
     NOP(); NOP();
     uint16_t tof = CCPR1;
+    LED_ARMb = 0;
+    //
+    // Compute the tick count to get to Event3.
     // For X2 AT4-AT7 sensors, set the delay to be 4.25 times the TOF period.
-    uint16_t pr_value = (tof << 2) + (tof >> 2) + delay_extra;
+    // uint16_t pr_value = (tof << 2) + (tof >> 2) + delay_extra;
+    // numer=17, denom=4
+    // We have tried to keep this calculation cheap and fast, however, 
+    // it is the user's responsibility that the intermediate result
+    // (tof*numer) does not overflow.  Keep to small values for numer.
+    uint16_t pr_value = (tof*numer)/denom + delay_extra;
     CCPR2 = pr_value;
     NOP(); NOP();
     CCP2CONbits.EN = 1;
@@ -755,8 +795,6 @@ uint8_t trigger_TOF()
     //
     // Some debug (but, maybe, we'll keep it)
     printf("tof=%u pr=%d ", tof, pr_value);
-    LED1 = 0; // No longer armed and waiting.
-    LED2 = 0;
     return 0;
 }
 
@@ -956,10 +994,12 @@ void interpret_command(char* cmdStr)
             putstr("          1= time-of-flight(TOF) trigger\n");
             putstr(" 1  trigger level for INa as an 8-bit count, 0-255\n");
             putstr(" 2  trigger level for INb as an 8-bit count, 0-255\n");
-            putstr(" 3  Vref selection for DACs 0=off, 1=1v024, 2=2v048, 3=4v096\n");
+            putstr(" 3  Vref selection for DACs 0=off, 1=1024mV, 2=2048mV, 3=4096mV\n");
             putstr(" 4  delay 0 as 16-bit count (8 ticks per us)\n");
             putstr(" 5  delay 1 as 16-bit count (8 ticks per us)\n");
             putstr(" 6  delay 2 as 16-bit count (8 ticks per us)\n");
+            putstr(" 7  numerator for scaling (1-255) keep small\n");
+            putstr(" 8  denominator for scaling (1-255)\n");
             putstr("ok\n");
             break;
         default:
@@ -982,9 +1022,9 @@ int main(void)
     __delay_ms(10);
     // Flash LED twice at start-up to indicate that the MCU is ready.
     for (int8_t i=0; i < 2; ++i) {
-        LED0 = 1;
+        LED_POWER = 1;
         __delay_ms(250);
-        LED0 = 0;
+        LED_POWER = 0;
         __delay_ms(250);
     }
     // Wait until we are reasonably sure that the MCU has restarted
@@ -993,7 +1033,7 @@ int main(void)
     uart1_flush_rx();
     // We will operate the MCU as a slave, waiting for commands
     // and only responding then.
-    LED0 = 1;  // Indicate that we are running. 
+    LED_POWER = 1;  // Indicate that we are running. 
     while (1) {
         // Characters are not echoed as they are typed.
         // Backspace deleting is allowed.
@@ -1007,6 +1047,6 @@ int main(void)
     FVR_close();
     uart1_flush_rx();
     uart1_close();
-    LED0 = 0;
+    LED_POWER = 0;
     return 0; // Expect that the MCU will reset.
 } // end main
