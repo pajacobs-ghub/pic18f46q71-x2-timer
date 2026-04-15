@@ -7,9 +7,9 @@
 //     2024-07-15 Fixed delays implemented.
 //     2024-07-16 Add third delay to simple trigger and implement TOF trigger.
 //     2024-07-17 Refactor code for setting of latches.
-//     2026-04-13 Add RA7 driving REMOTE_LEDa
+//     2026-04-15 Add RA7 driving REMOTE_LEDa, fix EEPROM writing.
 //
-#define VERSION_STR "v0.11 PIC18F46Q71 X2-timer-ng build-3 2026-04-13"
+#define VERSION_STR "v0.12 PIC18F46Q71 X2-timer-ng build-3 2026-04-15"
 //
 // PIC18F46Q71 Configuration Bit Settings (generated in Memory View)
 // CONFIG1
@@ -148,12 +148,15 @@ __EEPROM_DATA(0,0, 0,0, 0,0, 17,0);
 __EEPROM_DATA(4,0, 0,0, 0,0, 0,0);
 
 char save_registers_to_EEPROM()
+// Note that, if there is a reported failure of any byte,
+// the function returns early with a failure flag.
 {
+    uint8_t fail_flag = 0;
     for (uint16_t i=0; i < NUMREG; ++i) {
-        DATAEE_WriteByte(2*i, (char)(vregister[i] & 0x00FF));
-        DATAEE_WriteByte((2*i)+1, (char)((vregister[i] >> 8) & 0x00FF));
+        if (DATAEE_WriteByte(2*i, (char)(vregister[i] & 0x00FF))) return 1;
+        if (DATAEE_WriteByte((2*i)+1, (char)((vregister[i] >> 8) & 0x00FF))) return 1;
     }
-    return 0;
+    return 0; // Success, if we arrive here.
 }
 
 char restore_registers_from_EEPROM()
@@ -161,7 +164,7 @@ char restore_registers_from_EEPROM()
     for (uint16_t i=0; i < NUMREG; ++i) {
         vregister[i] = (DATAEE_ReadByte((2*i)+1) << 8) | DATAEE_ReadByte(2*i);
     }
-    return 0;
+    return 0; // Always successful.
 }
 
 void init_pins()
