@@ -41,6 +41,8 @@ There are two modes of operation:
 
 ### Simple trigger mode
 
+![Mode 0: Simple trigger](./x2-timer-simple-mode.png)
+
 The output transitions (low to high) occur at the following times:
 
 | OUTPUT |  TIME |
@@ -58,6 +60,8 @@ Note that, if delayN is set to zero,
 the corresponding digital output will step high at EVENTa. 
 
 ### Time-of-flight (TOF) trigger mode
+
+![Mode 1: Time-of-Flight trigger](./x2-timer-TOF-mode.png)
 
 The output transitions (low to high) occur at the following times:
 
